@@ -1,5 +1,6 @@
 package com.johan.inmemorydatabase.database;
 
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.ListIterator;
@@ -116,64 +117,94 @@ public class MemoryDatabase {
         blocks.add(block);
     }
 
+    /**
+     * execute the command for the database
+     * @param memoryDatabase
+     * @param params
+     * @param line
+     * @return the result to print if any, return END if exit
+     */
+    public static String executeCommand(MemoryDatabase memoryDatabase, String[] params, String line) {
+        String resultToPrint = null;
+        String command = params[0];
+        String key;
+        Integer value;
+        try {
+            switch (command) {
+                case "GET":
+                    key = params[1];
+                    // if value for key exist print value, else print NULL
+                    resultToPrint = String.valueOf(memoryDatabase.get(key) != null ? memoryDatabase.get(key) : "NULL");
+                    break;
+                case "SET":
+                    key = params[1];
+                    value = Integer.parseInt(params[2]);
+                    memoryDatabase.set(key, value);
+                    break;
+                case "UNSET":
+                    key = params[1];
+                    memoryDatabase.set(key, null);
+                    break;
+                case "NUMEQUALTO":
+                    value = Integer.parseInt(params[1]);
+                    resultToPrint = String.valueOf(memoryDatabase.numEqualTo(value));
+                    break;
+                case "BEGIN":
+                    memoryDatabase.begin();
+                    break;
+                case "ROLLBACK":
+                    // if can't rollback, print NO TRANSACTION
+                    if (!memoryDatabase.rollBack()) resultToPrint = "NO TRANSACTION";
+                    break;
+                case "COMMIT":
+                    // if nothing to commit, print NO TRANSACTION
+                    if (!memoryDatabase.commit()) resultToPrint = "NO TRANSACTION";
+                    break;
+                case "END":
+                    resultToPrint = "END";
+                    return resultToPrint;
+                case "":
+                    break;
+                default:
+                    resultToPrint = "Invalid command: " + command;
+            }
+        } catch (NumberFormatException e) {
+            resultToPrint = "Invalid param: " + line + " is not a number";
+        } catch (ArrayIndexOutOfBoundsException e) {
+            resultToPrint = "Missing param: " + line;
+        }
+        return resultToPrint;
+    }
 
-    public static void main(String[] args) {
+    /**
+     * execute the input stream (separated from the main only to execute from Android code)
+     * @param inputStream the InputStream to execute
+     * @return the result to print (for Android)
+     */
+    public static String executeInputStream(InputStream inputStream) {
         MemoryDatabase memoryDatabase = new MemoryDatabase();
-        Scanner scanner = new Scanner(System.in);
+        Scanner scanner = new Scanner(inputStream);
         scanner.useDelimiter("\\s+"); // space
         String line;
+        String result = "";
         while (scanner.hasNextLine()) {
             line = scanner.nextLine();
             String[] params = line.split("\\s+"); // space
-            String command = params[0];
-            String key;
-            Integer value;
-            try {
-                switch (command) {
-                    case "GET":
-                        key = params[1];
-                        // if value for key exist print value, else print NULL
-                        System.out.println(memoryDatabase.get(key) != null ? memoryDatabase.get(key) : "NULL");
-                        break;
-                    case "SET":
-                        key = params[1];
-                        value = Integer.parseInt(params[2]);
-                        memoryDatabase.set(key, value);
-                        break;
-                    case "UNSET":
-                        key = params[1];
-                        memoryDatabase.set(key, null);
-                        break;
-                    case "NUMEQUALTO":
-                        value = Integer.parseInt(params[1]);
-                        System.out.println(memoryDatabase.numEqualTo(value));
-                        break;
-                    case "BEGIN":
-                        memoryDatabase.begin();
-                        break;
-                    case "ROLLBACK":
-                        // if can't rollback, print NO TRANSACTION
-                        if (!memoryDatabase.rollBack()) System.out.println("NO TRANSACTION");
-                        break;
-                    case "COMMIT":
-                        // if nothing to commit, print NO TRANSACTION
-                        if (!memoryDatabase.commit()) System.out.println("NO TRANSACTION");
-                        break;
-                    case "END":
-                        return;
-                    case "":
-                        break;
-                    default:
-                        System.out.println("Invalid command: " + command);
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid param: " + line + " is not a number");
-            } catch (ArrayIndexOutOfBoundsException e) {
-                System.out.println("Missing param: " + line);
+            String lineResult = executeCommand(memoryDatabase, params, line);
+            if (lineResult != null) {
+                result += lineResult + "\n";
+                if (lineResult.equals("END")) return result;
+                System.out.println(lineResult);
             }
         }
         scanner.close();
+        return result;
     }
+
+    public static void main(String[] args) {
+       executeInputStream(System.in);
+    }
+
 }
 
 /**
